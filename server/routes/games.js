@@ -25,6 +25,78 @@ router.get('/current', auth, async (req, res) => {
         startTime: new Date(Date.now() + 10000) // Start in 10 seconds
       });
       await game.save();
+    } else {
+      // Check if waiting game should start betting
+      const now = new Date();
+      if (game.status === 'waiting' && now >= game.startTime) {
+        game.status = 'betting';
+        await game.save();
+      }
+      
+      // Check if betting game should end (after 60 seconds of betting)
+      if (game.status === 'betting') {
+        const bettingDuration = 60000; // 60 seconds
+        const bettingEndTime = new Date(game.startTime.getTime() + bettingDuration);
+        if (now >= bettingEndTime) {
+          // Auto-end the game
+          const resultNumber = game.fixedResult !== null ? game.fixedResult : Math.floor(Math.random() * 10);
+          const resultColor = resultNumber === 0 ? 'green' : (resultNumber % 2 === 0 ? 'red' : 'green');
+          const resultSize = resultNumber >= 5 ? 'big' : 'small';
+
+          game.status = 'completed';
+          game.endTime = new Date();
+          game.resultNumber = resultNumber;
+          game.resultColor = resultColor;
+          game.resultSize = resultSize;
+          await game.save();
+
+          // Process bets (if any)
+          const bets = await Bet.find({ gameId: game._id, result: 'pending' });
+          
+          for (const bet of bets) {
+            let isWin = false;
+            let multiplier = 1;
+
+            switch (bet.betType) {
+              case 'number':
+                isWin = parseInt(bet.betValue) === resultNumber;
+                multiplier = 9;
+                break;
+              case 'color':
+                isWin = bet.betValue === resultColor;
+                multiplier = 2;
+                break;
+              case 'size':
+                isWin = bet.betValue === resultSize;
+                multiplier = 2;
+                break;
+            }
+
+            bet.result = isWin ? 'win' : 'loss';
+            bet.payout = isWin ? bet.amount * multiplier : 0;
+            await bet.save();
+
+            if (isWin) {
+              // Update wallet
+              const wallet = await Wallet.findOne({ userId: bet.userId });
+              if (wallet) {
+                wallet.balance += bet.payout;
+                await wallet.save();
+              }
+
+              // Create transaction
+              const transaction = new Transaction({
+                userId: bet.userId,
+                type: 'win',
+                amount: bet.payout,
+                description: `Won $${bet.payout} from ${bet.betType} bet`,
+                status: 'approved'
+              });
+              await transaction.save();
+            }
+          }
+        }
+      }
     }
 
     res.json({ game });

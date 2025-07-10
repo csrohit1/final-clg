@@ -102,7 +102,24 @@ router.get('/transactions', adminAuth, async (req, res) => {
       .populate('userId', 'email username')
       .sort({ createdAt: -1 });
 
-    res.json({ transactions });
+    // Format transactions for frontend
+    const formattedTransactions = transactions.map(transaction => ({
+      _id: transaction._id,
+      id: transaction._id, // Add both for compatibility
+      userId: transaction.userId,
+      user_email: transaction.userId?.email || 'Unknown',
+      type: transaction.type,
+      amount: transaction.amount,
+      description: transaction.description,
+      status: transaction.status,
+      screenshotUrl: transaction.screenshotUrl,
+      screenshot_url: transaction.screenshotUrl, // Add both for compatibility
+      adminNotes: transaction.adminNotes,
+      admin_notes: transaction.adminNotes, // Add both for compatibility
+      createdAt: transaction.createdAt,
+      created_at: transaction.createdAt // Add both for compatibility
+    }));
+    res.json({ transactions: formattedTransactions });
   } catch (error) {
     console.error('Get transactions error:', error);
     res.status(500).json({ error: 'Server error' });
