@@ -348,7 +348,7 @@ export function AdminGameControl() {
                 <div className="flex justify-between">
                   <span className="text-[#b1bad3]">Games Today:</span>
                   <span className="text-white">{gameStats.gamesToday}</span>
-                <p className="text-2xl font-bold text-white">#{currentGame.gameNumber}</p>
+                </div>
               </div>
             </div>
           </div>
