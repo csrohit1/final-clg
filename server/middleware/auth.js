@@ -20,9 +20,15 @@ const auth = async (req, res, next) => {
       return res.status(403).json({ error: 'Account is blocked.' });
     }
 
+    // Update last active timestamp
+    user.lastActive = new Date();
+    await user.save();
     req.user = user;
     next();
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired. Please login again.' });
+    }
     res.status(401).json({ error: 'Invalid token.' });
   }
 };

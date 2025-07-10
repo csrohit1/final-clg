@@ -95,6 +95,22 @@ router.get('/current', auth, async (req, res) => {
               await transaction.save();
             }
           }
+          
+          // Auto-create next game after 5 seconds
+          setTimeout(async () => {
+            try {
+              const nextGameNumber = game.gameNumber + 1;
+              const nextGame = new Game({
+                gameNumber: nextGameNumber,
+                status: 'waiting',
+                startTime: new Date(Date.now() + 5000) // Start in 5 seconds
+              });
+              await nextGame.save();
+              console.log(`Auto-created next game #${nextGameNumber}`);
+            } catch (error) {
+              console.error('Error auto-creating next game:', error);
+            }
+          }, 5000);
         }
       }
     }

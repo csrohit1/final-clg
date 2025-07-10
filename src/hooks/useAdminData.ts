@@ -16,11 +16,13 @@ export function useAdminData() {
 
   useEffect(() => {
     fetchAdminStats();
+    // Refresh stats every 30 seconds
+    const interval = setInterval(fetchAdminStats, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchAdminStats = async () => {
     try {
-      setLoading(true);
 
       const response = await api.getAdminStats();
       setStats({

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../hooks/useGame';
 import { useWallet } from '../hooks/useWallet';
+import { BetResult } from '../components/BetResult';
 import { BetType } from '../types/database';
 import { Clock, Gamepad2, Target, Palette, Zap, Trophy, AlertCircle } from 'lucide-react';
 
@@ -13,6 +14,16 @@ export function GamePage() {
   const [betAmount, setBetAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [betPlaced, setBetPlaced] = useState(false);
+  const [gameResult, setGameResult] = useState<{
+    winningNumber: number;
+    winningColor: 'red' | 'green';
+    winningSize: 'big' | 'small';
+    isWin: boolean;
+    payout: number;
+    betType: string;
+    betValue: string;
+  } | null>(null);
+  const [lastGameId, setLastGameId] = useState<string | null>(null);
 
   const numbers = Array.from({ length: 10 }, (_, i) => i);
   const colors = ['red', 'green'];
@@ -22,8 +33,51 @@ export function GamePage() {
   useEffect(() => {
     if (currentGame) {
       setBetPlaced(false);
+      
+      // Check if game just completed and show result
+      if (currentGame.status === 'completed' && 
+          currentGame._id !== lastGameId && 
+          currentGame.resultNumber !== undefined &&
+          betPlaced) {
+        
+        // Determine if user won based on their bet
+        let isWin = false;
+        let multiplier = 1;
+        
+        if (selectedBetType && selectedValue) {
+          switch (selectedBetType) {
+            case 'number':
+              isWin = parseInt(selectedValue) === currentGame.resultNumber;
+              multiplier = 9;
+              break;
+            case 'color':
+              isWin = selectedValue === currentGame.resultColor;
+              multiplier = 2;
+              break;
+            case 'size':
+              isWin = selectedValue === currentGame.resultSize;
+              multiplier = 2;
+              break;
+          }
+        }
+        
+        const betAmountNum = parseFloat(betAmount || '0');
+        const payout = isWin ? betAmountNum * multiplier : 0;
+        
+        setGameResult({
+          winningNumber: currentGame.resultNumber,
+          winningColor: currentGame.resultColor!,
+          winningSize: currentGame.resultSize!,
+          isWin,
+          payout,
+          betType: selectedBetType || '',
+          betValue: selectedValue || '',
+        });
+      }
+      
+      setLastGameId(currentGame._id);
     }
-  }, [currentGame?.id]);
+  }, [currentGame?._id, currentGame?.status, currentGame?.resultNumber]);
 
   const getNumberColor = (num: number) => {
     if (num === 0) return 'bg-green-500';
@@ -354,6 +408,24 @@ export function GamePage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Bet Result Modal */}
+      {gameResult && (
+        <BetResult
+          winningNumber={gameResult.winningNumber}
+          winningColor={gameResult.winningColor}
+          winningSize={gameResult.winningSize}
+          isWin={gameResult.isWin}
+          payout={gameResult.payout}
+          betType={gameResult.betType}
+          betValue={gameResult.betValue}
+          onClose={() => {
+            setGameResult(null);
+            setSelectedValue('');
+            setBetAmount('');
+          }}
+        />
       )}
     </div>
   );

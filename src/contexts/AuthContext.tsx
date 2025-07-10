@@ -31,6 +31,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       setLoading(false);
     }
+    
+    // Set up token refresh interval (every 30 minutes)
+    const refreshInterval = setInterval(() => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken && user) {
+        // Refresh user data to keep session alive
+        getCurrentUser().catch(() => {
+          // If refresh fails, sign out user
+          signOut();
+        });
+      }
+    }, 30 * 60 * 1000); // 30 minutes
+    
+    return () => clearInterval(refreshInterval);
+  }, [user]);
+  
+  // Listen for storage changes (user logs out in another tab)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token' && !e.newValue) {
+        // Token was removed, sign out user
+        setUser(null);
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+  
+  // Check for token expiration on page focus
+  useEffect(() => {
+    const handleFocus = () => {
+      const token = localStorage.getItem('token');
+      if (token && !user) {
+        getCurrentUser();
+      } else if (!token && user) {
+        setUser(null);
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [user]);
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const getCurrentUser = async () => {
@@ -40,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Get current user error:', error);
       api.setToken(null);
+      setUser(null);
     } finally {
       setLoading(false);
     }

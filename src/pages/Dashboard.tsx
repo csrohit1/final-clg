@@ -1,6 +1,6 @@
 import React from 'react';
 import { useWallet } from '../hooks/useWallet';
-import { useBets } from '../hooks/useBets';
+import { useGame } from '../hooks/useGame';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { Coins, Gamepad2, TrendingUp, Activity, Trophy, TrendingDown, Zap, Target, Play } from 'lucide-react';
@@ -8,9 +8,18 @@ import { Coins, Gamepad2, TrendingUp, Activity, Trophy, TrendingDown, Zap, Targe
 export function Dashboard() {
   const { user } = useAuth();
   const { wallet } = useWallet();
-  const { getStats } = useBets();
+  const { currentGame } = useGame();
   
-  const stats = getStats();
+  // Mock stats for now - you can implement real stats later
+  const stats = {
+    totalBets: 0,
+    wins: 0,
+    losses: 0,
+    winRate: 0,
+    totalWagered: 0,
+    totalWon: 0,
+    netProfit: 0,
+  };
 
   const cards = [
     {
@@ -48,10 +57,36 @@ export function Dashboard() {
       {/* Welcome Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-white mb-2">
-          Welcome back, {user?.user_metadata?.username || 'Player'}!
+          Welcome back, {user?.username || user?.email?.split('@')[0] || 'Player'}!
         </h1>
         <p className="text-[#b1bad3] text-lg">Ready to test your luck?</p>
       </div>
+
+      {/* Last Game Result */}
+      {currentGame && currentGame.status === 'completed' && currentGame.resultNumber !== undefined && (
+        <div className="bg-[#1a2c38] border border-[#2f4553] rounded-2xl p-6">
+          <h2 className="text-xl font-bold text-white mb-4 text-center">Last Game Result</h2>
+          <div className="flex items-center justify-center space-x-8">
+            <div className="text-center">
+              <p className="text-[#b1bad3] text-sm mb-2">Game #{currentGame.gameNumber}</p>
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl mx-auto ${
+                currentGame.resultNumber === 0 ? 'bg-green-500' : 
+                currentGame.resultNumber % 2 === 0 ? 'bg-red-500' : 'bg-green-500'
+              }`}>
+                {currentGame.resultNumber}
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-[#b1bad3] text-sm mb-2">Color</p>
+              <p className="text-white font-bold text-lg">{currentGame.resultColor?.toUpperCase()}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[#b1bad3] text-sm mb-2">Size</p>
+              <p className="text-white font-bold text-lg">{currentGame.resultSize?.toUpperCase()}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

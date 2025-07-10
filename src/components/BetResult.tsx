@@ -1,26 +1,51 @@
 import React, { useEffect } from 'react';
-import { ColorOption } from '../types/database';
-import { Trophy, TrendingDown, Sparkles } from 'lucide-react';
+import { Trophy, TrendingDown, Sparkles, X } from 'lucide-react';
 
 interface BetResultProps {
-  winningColor: ColorOption;
+  winningNumber: number;
+  winningColor: 'red' | 'green';
+  winningSize: 'big' | 'small';
   isWin: boolean;
   payout: number;
+  betType: string;
+  betValue: string;
   onClose: () => void;
 }
 
-export function BetResult({ winningColor, isWin, payout, onClose }: BetResultProps) {
+export function BetResult({ 
+  winningNumber, 
+  winningColor, 
+  winningSize, 
+  isWin, 
+  payout, 
+  betType, 
+  betValue, 
+  onClose 
+}: BetResultProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 4000);
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, [onClose]);
 
+  const getNumberColor = (num: number) => {
+    if (num === 0) return 'bg-green-500';
+    return num % 2 === 0 ? 'bg-red-500' : 'bg-green-500';
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-[#1a2c38] border border-[#2f4553] rounded-2xl p-8 max-w-md w-full text-center relative overflow-hidden">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 text-[#b1bad3] hover:text-white transition-all"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
         {/* Animated background */}
         {isWin && (
           <div className="absolute inset-0 bg-gradient-to-r from-[#00d4aa]/10 to-[#00b4d8]/10 animate-pulse" />
@@ -38,19 +63,37 @@ export function BetResult({ winningColor, isWin, payout, onClose }: BetResultPro
               </div>
             )}
             
-            <h2 className={`text-3xl font-bold mb-2 ${isWin ? 'text-[#00d4aa]' : 'text-red-400'}`}>
-              {isWin ? 'Big Win!' : 'Better Luck Next Time'}
+            <h2 className={`text-3xl font-bold mb-4 ${isWin ? 'text-[#00d4aa]' : 'text-red-400'}`}>
+              {isWin ? '🎉 Congratulations!' : '😔 Better Luck Next Time'}
             </h2>
             
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <span className="text-[#b1bad3]">Winning color:</span>
-              <div className={`w-6 h-6 rounded-full ${
-                winningColor === 'red' ? 'bg-red-500' :
-                winningColor === 'green' ? 'bg-emerald-500' :
-                winningColor === 'blue' ? 'bg-blue-500' :
-                'bg-yellow-500'
-              }`} />
-              <span className="font-semibold capitalize text-white">{winningColor}</span>
+            {/* Game Result */}
+            <div className="bg-[#0f212e] border border-[#2f4553] rounded-xl p-4 mb-4">
+              <h3 className="text-white font-bold mb-3">Game Result</h3>
+              <div className="flex items-center justify-center space-x-6">
+                <div className="text-center">
+                  <p className="text-[#b1bad3] text-sm mb-2">Number</p>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${getNumberColor(winningNumber)}`}>
+                    {winningNumber}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-[#b1bad3] text-sm mb-2">Color</p>
+                  <p className="text-white font-bold capitalize">{winningColor}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[#b1bad3] text-sm mb-2">Size</p>
+                  <p className="text-white font-bold capitalize">{winningSize}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Your Bet */}
+            <div className="bg-[#0f212e] border border-[#2f4553] rounded-xl p-4 mb-4">
+              <h3 className="text-white font-bold mb-2">Your Bet</h3>
+              <p className="text-[#b1bad3]">
+                You bet on <span className="text-white font-medium">{betType}: {betValue}</span>
+              </p>
             </div>
             
             {isWin && (
