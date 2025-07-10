@@ -52,12 +52,15 @@ export function AdminTransactions() {
   });
 
   const handleTransactionAction = async (transactionId: string, action: 'approve' | 'reject') => {
-    if (!selectedTransaction) return;
+    if (!selectedTransaction || !selectedTransaction._id) {
+      console.error('No transaction selected or missing ID');
+      return;
+    }
 
     setActionLoading(true);
     try {
       const newStatus = action === 'approve' ? 'approved' : 'rejected';
-      await api.updateTransaction(transactionId, newStatus, adminNotes);
+      await api.updateTransaction(selectedTransaction._id, newStatus, adminNotes);
 
       await fetchTransactions();
       setShowModal(false);
@@ -308,7 +311,7 @@ export function AdminTransactions() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#b1bad3] mb-1">User Email</label>
-                  <p className="text-white">{selectedTransaction.user_email}</p>
+                  <p className="text-white">{selectedTransaction.user_email || selectedTransaction.userId || 'Unknown'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-[#b1bad3] mb-1">Type</label>
@@ -334,24 +337,28 @@ export function AdminTransactions() {
               <div>
                 <label className="block text-sm font-medium text-[#b1bad3] mb-1">Date</label>
                 <p className="text-white">
-                  {new Date(selectedTransaction.created_at).toLocaleString()}
+                  {new Date(selectedTransaction.createdAt || selectedTransaction.created_at).toLocaleString()}
                 </p>
               </div>
 
-              {selectedTransaction.screenshot_url && (
+              {(selectedTransaction.screenshotUrl || selectedTransaction.screenshot_url) && (
                 <div>
                   <label className="block text-sm font-medium text-[#b1bad3] mb-2">Payment Screenshot</label>
                   <div className="bg-[#0f212e] border border-[#2f4553] rounded-lg p-4">
                     <img 
-                      src={selectedTransaction.screenshot_url} 
+                      src={selectedTransaction.screenshotUrl || selectedTransaction.screenshot_url} 
                       alt="Payment Screenshot" 
                       className="max-w-full max-h-64 object-contain rounded-lg mx-auto"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
-                        (e.target as HTMLImageElement).nextElementSibling!.textContent = 'Screenshot could not be loaded';
+                        const nextElement = (e.target as HTMLImageElement).nextElementSibling;
+                        if (nextElement) {
+                          nextElement.textContent = 'Screenshot could not be loaded';
+                          (nextElement as HTMLElement).style.display = 'block';
+                        }
                       }}
                     />
-                    <p className="text-[#b1bad3] text-sm text-center mt-2 hidden">Screenshot could not be loaded</p>
+                    <p className="text-[#b1bad3] text-sm text-center mt-2" style={{ display: 'none' }}>Screenshot could not be loaded</p>
                   </div>
                 </div>
               )}
@@ -371,7 +378,7 @@ export function AdminTransactions() {
             {selectedTransaction.status === 'pending' && (
               <div className="flex space-x-3">
                 <button
-                  onClick={() => handleTransactionAction(selectedTransaction.id, 'reject')}
+                  onClick={() => handleTransactionAction(selectedTransaction._id || selectedTransaction.id, 'reject')}
                   disabled={actionLoading}
                   className="flex-1 px-4 py-3 bg-red-500/20 text-red-300 border border-red-500/30 rounded-xl hover:bg-red-500/30 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
@@ -379,7 +386,7 @@ export function AdminTransactions() {
                   <span>{actionLoading ? 'Processing...' : 'Reject'}</span>
                 </button>
                 <button
-                  onClick={() => handleTransactionAction(selectedTransaction.id, 'approve')}
+                  onClick={() => handleTransactionAction(selectedTransaction._id || selectedTransaction.id, 'approve')}
                   disabled={actionLoading}
                   className="flex-1 px-4 py-3 bg-[#00d4aa]/20 text-[#00d4aa] border border-[#00d4aa]/30 rounded-xl hover:bg-[#00d4aa]/30 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >

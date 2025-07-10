@@ -31,17 +31,33 @@ export function useGame() {
   }, []);
 
   useEffect(() => {
-    if (currentGame && currentGame.status === 'betting') {
+    if (currentGame && (currentGame.status === 'betting' || currentGame.status === 'waiting')) {
       const timer = setInterval(() => {
         const now = new Date().getTime();
         const startTime = new Date(currentGame.startTime).getTime();
-        const duration = 60000; // 60 seconds default
-        const elapsed = now - startTime;
-        const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
         
-        setTimeLeft(remaining);
+        if (currentGame.status === 'waiting') {
+          // Show countdown to game start
+          const timeToStart = Math.max(0, Math.ceil((startTime - now) / 1000));
+          setTimeLeft(timeToStart);
+          
+          // Auto-refresh when game should start
+          if (timeToStart === 0) {
+            fetchCurrentGame();
+          }
+        } else if (currentGame.status === 'betting') {
+          // Show countdown for betting time
+          const duration = 60000; // 60 seconds default
+          const elapsed = now - startTime;
+          const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+          setTimeLeft(remaining);
+          
+          // Auto-refresh when betting should end
+          if (remaining === 0) {
+            fetchCurrentGame();
+          }
+        }
         
-        // Don't auto-fetch when timer ends, let the 30-second interval handle it
       }, 1000); // Keep 1 second for countdown timer
 
       return () => clearInterval(timer);

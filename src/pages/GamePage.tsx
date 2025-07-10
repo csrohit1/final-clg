@@ -136,7 +136,10 @@ export function GamePage() {
         {currentGame.status === 'waiting' && (
           <div className="text-center py-8">
             <Clock className="h-12 w-12 text-[#00d4aa] mx-auto mb-4" />
-            <p className="text-[#b1bad3] text-lg">Game starting soon...</p>
+            <p className="text-[#b1bad3] text-lg">Game starting in:</p>
+            <div className="text-4xl font-bold text-[#00d4aa] mb-2">
+              {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+            </div>
             <p className="text-[#00d4aa] font-medium">Get ready to place your bets!</p>
           </div>
         )}
