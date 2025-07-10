@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useWallet } from '../hooks/useWallet';
 import { useForm } from 'react-hook-form';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Wallet, Plus, History, DollarSign, Clock, TrendingUp, TrendingDown, CreditCard, QrCode, Upload, CheckCircle, AlertCircle, X } from 'lucide-react';
 
@@ -26,16 +26,9 @@ export function WalletPage() {
   // Fetch QR code from admin settings
   const fetchQRCode = async () => {
     try {
-      const { data, error } = await supabase
-        .from('admin_settings')
-        .select('qr_code_url')
-        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching QR code:', error);
-      }
-      
-      setQrCodeUrl(data?.qr_code_url || 'https://via.placeholder.com/300x300?text=Payment+QR+Code');
+      const response = await api.getAdminSettings();
+      setQrCodeUrl(response.settings.qrCodeUrl || 'https://via.placeholder.com/300x300?text=Payment+QR+Code');
     } catch (error) {
       console.error('Error fetching QR code:', error);
       setQrCodeUrl('https://via.placeholder.com/300x300?text=Payment+QR+Code');
@@ -98,24 +91,9 @@ export function WalletPage() {
       
       const base64Data = await base64Promise;
 
-      // Create pending deposit transaction with base64 image
-      const { error: insertError } = await supabase
-        .from('transactions')
-        .insert([
-          {
-            user_id: user.id,
-            type: 'pending_deposit',
-            amount: depositAmount,
-            description: `Deposit request of $${depositAmount}`,
-            status: 'pending',
-            screenshot_url: base64Data, // Store base64 data directly
-          },
-        ]);
 
-      if (insertError) {
-        console.error('Insert error:', insertError);
-        throw new Error(insertError.message || 'Failed to submit deposit request');
-      }
+      // Create deposit request using the API
+      await api.createDepositRequest(depositAmount, screenshotFile);
 
       setSuccess(true);
       setShowQRModal(false);

@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Bet, ColorOption } from '../types/database';
-import QRCode from 'qrcode';
+import { api } from '../lib/api';
+
+interface Bet {
+  _id: string;
+  userId: string;
+  gameId: string;
+  betType: string;
+  betValue: string;
+  amount: number;
+  result: 'win' | 'loss' | 'pending';
+  payout: number;
+  createdAt: string;
+}
 
 export function useBets() {
   const { user } = useAuth();
@@ -19,14 +29,9 @@ export function useBets() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('bets')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setBets(data || []);
+      // For now, we'll use mock data since the backend doesn't have a bets endpoint yet
+      // You can implement this when you add the bets API endpoint
+      setBets([]);
     } catch (error) {
       console.error('Error fetching bets:', error);
     } finally {
@@ -34,59 +39,19 @@ export function useBets() {
     }
   };
 
-  const placeBet = async (color: ColorOption, amount: number) => {
+  const placeBet = async (color: string, amount: number) => {
     if (!user) throw new Error('User not authenticated');
 
-    const betId = crypto.randomUUID();
-    const colors: ColorOption[] = ['red', 'green', 'blue', 'yellow'];
+    // Mock implementation - replace with actual API call
+    const colors = ['red', 'green', 'blue', 'yellow'];
     const winningColor = colors[Math.floor(Math.random() * colors.length)];
     const isWin = color === winningColor;
     const payout = isWin ? amount * 3 : 0;
 
-    // Generate QR code data
-    const qrData = {
-      betId,
-      userId: user.id,
-      color,
-      amount,
-      timestamp: new Date().toISOString(),
-      winningColor,
-      result: isWin ? 'win' : 'loss',
-      payout,
-    };
-
-    const qrCodeDataUrl = await QRCode.toDataURL(JSON.stringify(qrData));
-
     try {
-      const { error } = await supabase
-        .from('bets')
-        .insert([
-          {
-            id: betId,
-            user_id: user.id,
-            color,
-            amount,
-            winning_color: winningColor,
-            result: isWin ? 'win' : 'loss',
-            payout,
-            qr_code_data: qrCodeDataUrl,
-          },
-        ]);
-
-      if (error) throw error;
-
-      // Create transaction record
-      await supabase
-        .from('transactions')
-        .insert([
-          {
-            user_id: user.id,
-            type: isWin ? 'win' : 'loss',
-            amount: isWin ? payout : -amount,
-            description: `${isWin ? 'Won' : 'Lost'} $${amount} betting on ${color}`,
-          },
-        ]);
-
+      // This would be replaced with actual API call to place bet
+      // await api.placeBet(gameId, 'color', color, amount);
+      
       await fetchBets();
       return { winningColor, isWin, payout };
     } catch (error) {

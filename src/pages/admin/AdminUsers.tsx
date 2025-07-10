@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Users, Search, Shield, ShieldOff, Mail, Calendar, Ban, CheckCircle } from 'lucide-react';
 
 interface User {
@@ -30,56 +30,8 @@ export function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
-      // Get all users with their wallet and bet data
-      const { data: walletsData, error: walletsError } = await supabase
-        .from('wallets')
-        .select(`
-          user_id,
-          balance,
-          created_at
-        `);
-
-      if (walletsError) throw walletsError;
-
-      // Get user metadata from auth.users (this might need RLS policy adjustment)
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-      
-      if (authError) {
-        console.error('Error fetching auth users:', authError);
-        // Fallback to just wallet data
-      }
-
-      // Get bet statistics for each user
-      const userStats = await Promise.all(
-        (walletsData || []).map(async (wallet) => {
-          const { data: bets } = await supabase
-            .from('bets')
-            .select('result, amount')
-            .eq('user_id', wallet.user_id);
-
-          const totalBets = bets?.length || 0;
-          const wins = bets?.filter(bet => bet.result === 'win').length || 0;
-          const winRate = totalBets > 0 ? (wins / totalBets) * 100 : 0;
-
-          // Find corresponding auth user
-          const authUser = authUsers?.users?.find(u => u.id === wallet.user_id);
-
-          return {
-            id: wallet.user_id,
-            email: authUser?.email || 'Unknown',
-            username: authUser?.user_metadata?.username || authUser?.email?.split('@')[0] || 'Unknown',
-            balance: parseFloat(wallet.balance),
-            totalBets,
-            winRate,
-            isBlocked: false, // You'll need to implement user blocking
-            createdAt: new Date(wallet.created_at).toLocaleDateString(),
-            lastActive: new Date().toLocaleDateString(), // Placeholder
-          };
-        })
-      );
-
-      setUsers(userStats);
+      const response = await api.getAdminUsers();
+      setUsers(response.users || []);
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
@@ -101,25 +53,9 @@ export function AdminUsers() {
     if (!selectedUser || !blockReason) return;
 
     try {
-      // Create a user_blocks table entry (you'll need to create this table)
-      const { error } = await supabase
-        .from('user_blocks')
-        .insert([
-          {
-            user_id: selectedUser.id,
-            reason: blockReason,
-            blocked_by: (await supabase.auth.getUser()).data.user?.id,
-            blocked_at: new Date().toISOString(),
-          },
-        ]);
-
-      if (error) {
-        console.error('Error blocking user:', error);
-        alert('Error blocking user. User blocks table may not exist yet.');
-      } else {
-        alert('User blocked successfully');
-        await fetchUsers(); // Refresh the list
-      }
+      await api.blockUser(selectedUser.id, true, blockReason);
+      alert('User blocked successfully');
+      await fetchUsers();
     } catch (error) {
       console.error('Error blocking user:', error);
       alert('Error blocking user');
@@ -132,18 +68,10 @@ export function AdminUsers() {
 
   const handleUnblockUser = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from('user_blocks')
-        .delete()
-        .eq('user_id', userId);
 
-      if (error) {
-        console.error('Error unblocking user:', error);
-        alert('Error unblocking user');
-      } else {
-        alert('User unblocked successfully');
-        await fetchUsers();
-      }
+      await api.blockUser(userId, false);
+      alert('User unblocked successfully');
+      await fetchUsers();
     } catch (error) {
       console.error('Error unblocking user:', error);
       alert('Error unblocking user');

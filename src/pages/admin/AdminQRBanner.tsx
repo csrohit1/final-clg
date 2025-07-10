@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { QrCode, Image, Save, Upload } from 'lucide-react';
 
 export function AdminQRBanner() {
@@ -20,21 +20,11 @@ export function AdminQRBanner() {
 
   const fetchSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('admin_settings')
-        .select('*')
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching settings:', error);
-        return;
-      }
-
-      if (data) {
-        setQrCodeUrl(data.qr_code_url || '');
-        setBannerText(data.header_banner_text || 'Welcome to ColorBet Casino!');
-        setBannerActive(data.header_banner_active || true);
-      }
+      const response = await api.getAdminSettings();
+      const settings = response.settings;
+      setQrCodeUrl(settings.qrCodeUrl || '');
+      setBannerText(settings.headerBannerText || 'Welcome to ColorBet Casino!');
+      setBannerActive(settings.headerBannerActive || true);
     } catch (error) {
       console.error('Error fetching settings:', error);
     }
@@ -43,43 +33,11 @@ export function AdminQRBanner() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Check if settings exist
-      const { data: existingSettings, error: fetchError } = await supabase
-        .from('admin_settings')
-        .select('id')
-        .single();
-
-      if (fetchError && fetchError.code === 'PGRST116') {
-        // No settings exist, create new
-        const { error: insertError } = await supabase
-          .from('admin_settings')
-          .insert([{
-            qr_code_url: qrCodeUrl,
-            header_banner_text: bannerText,
-            header_banner_active: bannerActive,
-          }]);
-
-        if (insertError) {
-          throw insertError;
-        }
-      } else if (fetchError) {
-        throw fetchError;
-      } else {
-        // Update existing settings
-        const { error: updateError } = await supabase
-          .from('admin_settings')
-          .update({
-            qr_code_url: qrCodeUrl,
-            header_banner_text: bannerText,
-            header_banner_active: bannerActive,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingSettings.id);
-
-        if (updateError) {
-          throw updateError;
-        }
-      }
+      await api.updateAdminSettings({
+        qrCodeUrl,
+        headerBannerText: bannerText,
+        headerBannerActive: bannerActive,
+      });
 
       showMessage('success', 'Settings saved successfully!');
     } catch (error) {

@@ -4,7 +4,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../contexts/AdminContext';
 import { useWallet } from '../hooks/useWallet';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { Coins, Home, History, Wallet, LogOut, Gamepad2, Menu, X, Shield } from 'lucide-react';
 
 export function Layout() {
@@ -24,24 +24,18 @@ export function Layout() {
 
   const fetchBannerSettings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('admin_settings')
-        .select('header_banner_text, header_banner_active')
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching banner settings:', error);
-        return;
-      }
-
-      if (data) {
-        setBannerSettings({
-          text: data.header_banner_text || 'Welcome to ColorBet Casino!',
-          active: data.header_banner_active !== false,
-        });
-      }
+      const response = await api.getAdminSettings();
+      setBannerSettings({
+        text: response.settings.headerBannerText || 'Welcome to ColorBet Casino!',
+        active: response.settings.headerBannerActive !== false,
+      });
     } catch (error) {
       console.error('Error fetching banner settings:', error);
+      // Use defaults if API call fails
+      setBannerSettings({
+        text: 'Welcome to ColorBet Casino!',
+        active: true,
+      });
     }
   };
 

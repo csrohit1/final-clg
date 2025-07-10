@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { CreditCard, Search, CheckCircle, XCircle, Clock, Eye, Download } from 'lucide-react';
 
 interface Transaction {
@@ -32,35 +32,8 @@ export function AdminTransactions() {
   const fetchTransactions = async () => {
     try {
       setLoading(true);
-      
-      // Get transactions with user emails
-      const { data: transactionsData, error } = await supabase
-        .from('transactions')
-        .select(`
-          *
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching transactions:', error);
-        return;
-      }
-
-      // Get user emails separately
-      const userIds = [...new Set(transactionsData?.map(t => t.user_id) || [])];
-      const { data: users } = await supabase.auth.admin.listUsers();
-      
-      const userEmailMap = new Map();
-      users?.users?.forEach(user => {
-        userEmailMap.set(user.id, user.email);
-      });
-
-      const transactionsWithEmails = transactionsData?.map(transaction => ({
-        ...transaction,
-        user_email: userEmailMap.get(transaction.user_id) || 'Unknown'
-      })) || [];
-
-      setTransactions(transactionsWithEmails);
+      const response = await api.getAdminTransactions();
+      setTransactions(response.transactions || []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
     } finally {
@@ -84,43 +57,7 @@ export function AdminTransactions() {
     setActionLoading(true);
     try {
       const newStatus = action === 'approve' ? 'approved' : 'rejected';
-      
-      // Update transaction status
-      const { error: updateError } = await supabase
-        .from('transactions')
-        .update({
-          status: newStatus,
-          admin_notes: adminNotes || null,
-        })
-        .eq('id', transactionId);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      // If approving a deposit, update user's wallet balance
-      if (action === 'approve' && selectedTransaction.type === 'pending_deposit') {
-        const { error: walletError } = await supabase.rpc('update_wallet_balance', {
-          user_id: selectedTransaction.user_id,
-          amount_change: selectedTransaction.amount
-        });
-
-        if (walletError) {
-          console.error('Error updating wallet:', walletError);
-          // Create a manual transaction record for the approved deposit
-          await supabase
-            .from('transactions')
-            .insert([
-              {
-                user_id: selectedTransaction.user_id,
-                type: 'deposit',
-                amount: selectedTransaction.amount,
-                description: `Approved deposit of $${selectedTransaction.amount}`,
-                status: 'approved',
-              },
-            ]);
-        }
-      }
+      await api.updateTransaction(transactionId, newStatus, adminNotes);
 
       await fetchTransactions();
       setShowModal(false);

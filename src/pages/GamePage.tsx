@@ -329,22 +329,26 @@ export function GamePage() {
         <div className="bg-[#1a2c38] border border-[#2f4553] rounded-2xl p-6 text-center">
           <h2 className="text-2xl font-bold text-white mb-4">Game Results</h2>
           <div className="space-y-4">
-            <div className="flex items-center justify-center space-x-4">
-              <span className="text-[#b1bad3]">Winning Number:</span>
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl ${
-                getNumberColor(currentGame.result_number || 0)
-              }`}>
-                {currentGame.result_number}
-              </div>
-            </div>
-            <div className="flex items-center justify-center space-x-4">
-              <span className="text-[#b1bad3]">Color:</span>
-              <span className="text-white font-bold">{currentGame.result_color?.toUpperCase()}</span>
-            </div>
-            <div className="flex items-center justify-center space-x-4">
-              <span className="text-[#b1bad3]">Size:</span>
-              <span className="text-white font-bold">{currentGame.result_size?.toUpperCase()}</span>
-            </div>
+            {currentGame.resultNumber !== undefined && (
+              <>
+                <div className="flex items-center justify-center space-x-4">
+                  <span className="text-[#b1bad3]">Winning Number:</span>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl ${
+                    getNumberColor(currentGame.resultNumber || 0)
+                  }`}>
+                    {currentGame.resultNumber}
+                  </div>
+                </div>
+                <div className="flex items-center justify-center space-x-4">
+                  <span className="text-[#b1bad3]">Color:</span>
+                  <span className="text-white font-bold">{currentGame.resultColor?.toUpperCase()}</span>
+                </div>
+                <div className="flex items-center justify-center space-x-4">
+                  <span className="text-[#b1bad3]">Size:</span>
+                  <span className="text-white font-bold">{currentGame.resultSize?.toUpperCase()}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

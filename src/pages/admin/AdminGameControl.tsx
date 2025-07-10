@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { Settings, Target, Clock, Zap, Play, Square, AlertCircle, CheckCircle } from 'lucide-react';
 
 export function AdminGameControl() {
@@ -27,20 +27,8 @@ export function AdminGameControl() {
 
   const fetchCurrentGame = async () => {
     try {
-      const { data, error } = await supabase
-        .from('games')
-        .select('*')
-        .in('status', ['waiting', 'betting'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching current game:', error);
-        return;
-      }
-
-      setCurrentGame(data);
+      const response = await api.getCurrentGame();
+      setCurrentGame(response.game);
     } catch (error) {
       console.error('Error fetching current game:', error);
     }
@@ -48,41 +36,11 @@ export function AdminGameControl() {
 
   const fetchGameStats = async () => {
     try {
-      // Get today's games count
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const { count: gamesToday, error: gamesError } = await supabase
-        .from('games')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', today.toISOString());
-
-      if (gamesError) {
-        console.error('Error fetching games count:', gamesError);
-      }
-
-      // Get current game bets
-      let totalBets = 0;
-      let activePlayers = 0;
-      
-      if (currentGame) {
-        const { data: bets, error: betsError } = await supabase
-          .from('bets')
-          .select('amount, user_id')
-          .eq('game_id', currentGame.id);
-
-        if (betsError) {
-          console.error('Error fetching bets:', betsError);
-        } else if (bets) {
-          totalBets = bets.reduce((sum, bet) => sum + parseFloat(bet.amount), 0);
-          activePlayers = new Set(bets.map(bet => bet.user_id)).size;
-        }
-      }
-
+      // Mock stats for now - implement when backend has these endpoints
       setGameStats({
-        activePlayers,
-        totalBets,
-        gamesToday: gamesToday || 0,
+        activePlayers: 0,
+        totalBets: 0,
+        gamesToday: 0,
       });
     } catch (error) {
       console.error('Error fetching game stats:', error);
@@ -97,23 +55,11 @@ export function AdminGameControl() {
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('games')
-        .update({
-          is_fixed: true,
-          fixed_result: parseInt(fixedResult),
-        })
-        .eq('id', currentGame.id);
-
-      if (error) {
-        console.error('Error fixing result:', error);
-        showMessage('error', 'Failed to fix result: ' + error.message);
-      } else {
-        showMessage('success', `Game #${currentGame.game_number} result fixed to ${fixedResult}`);
-        await fetchCurrentGame();
-        setFixedResult('');
-        setIsFixingEnabled(false);
-      }
+      await api.fixGameResult(currentGame._id, parseInt(fixedResult));
+      showMessage('success', `Game #${currentGame.gameNumber} result fixed to ${fixedResult}`);
+      await fetchCurrentGame();
+      setFixedResult('');
+      setIsFixingEnabled(false);
     } catch (error: any) {
       console.error('Error fixing result:', error);
       showMessage('error', 'Error fixing result: ' + error.message);
@@ -125,45 +71,8 @@ export function AdminGameControl() {
   const handleUpdateDuration = async () => {
     setLoading(true);
     try {
-      // First check if admin_settings exists
-      const { data: existingSettings, error: fetchError } = await supabase
-        .from('admin_settings')
-        .select('id')
-        .limit(1)
-        .single();
-
-      if (fetchError && fetchError.code === 'PGRST116') {
-        // No settings exist, create one
-        const { error: insertError } = await supabase
-          .from('admin_settings')
-          .insert([{ game_duration: gameDuration }]);
-
-        if (insertError) {
-          console.error('Error creating admin settings:', insertError);
-          showMessage('error', 'Failed to create settings: ' + insertError.message);
-        } else {
-          showMessage('success', `Game duration updated to ${gameDuration} seconds`);
-        }
-      } else if (fetchError) {
-        console.error('Error fetching admin settings:', fetchError);
-        showMessage('error', 'Failed to fetch settings: ' + fetchError.message);
-      } else {
-        // Update existing settings
-        const { error: updateError } = await supabase
-          .from('admin_settings')
-          .update({ 
-            game_duration: gameDuration,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingSettings.id);
-
-        if (updateError) {
-          console.error('Error updating admin settings:', updateError);
-          showMessage('error', 'Failed to update settings: ' + updateError.message);
-        } else {
-          showMessage('success', `Game duration updated to ${gameDuration} seconds`);
-        }
-      }
+      await api.updateAdminSettings({ gameDuration });
+      showMessage('success', `Game duration updated to ${gameDuration} seconds`);
     } catch (error: any) {
       console.error('Error updating duration:', error);
       showMessage('error', 'Error updating duration: ' + error.message);
@@ -180,35 +89,10 @@ export function AdminGameControl() {
 
     setLoading(true);
     try {
-      // Generate random result if not fixed
-      let resultNumber = currentGame.fixed_result;
-      if (!currentGame.is_fixed || resultNumber === null) {
-        resultNumber = Math.floor(Math.random() * 10);
-      }
-
-      const resultColor = resultNumber === 0 ? 'green' : (resultNumber % 2 === 0 ? 'red' : 'green');
-      const resultSize = resultNumber >= 5 ? 'big' : 'small';
-
-      // Update game with results
-      const { error } = await supabase
-        .from('games')
-        .update({
-          status: 'completed',
-          end_time: new Date().toISOString(),
-          result_number: resultNumber,
-          result_color: resultColor,
-          result_size: resultSize,
-        })
-        .eq('id', currentGame.id);
-
-      if (error) {
-        console.error('Error ending game:', error);
-        showMessage('error', 'Failed to end game: ' + error.message);
-      } else {
-        showMessage('success', `Game #${currentGame.game_number} ended with result: ${resultNumber}`);
-        await fetchCurrentGame();
-        await fetchGameStats();
-      }
+      await api.endGame(currentGame._id);
+      showMessage('success', `Game #${currentGame.gameNumber} ended successfully`);
+      await fetchCurrentGame();
+      await fetchGameStats();
     } catch (error: any) {
       console.error('Error ending game:', error);
       showMessage('error', 'Error ending game: ' + error.message);
@@ -220,47 +104,8 @@ export function AdminGameControl() {
   const handleStartNewGame = async () => {
     setLoading(true);
     try {
-      // Get the last game number
-      const { data: lastGame, error: lastGameError } = await supabase
-        .from('games')
-        .select('game_number')
-        .order('game_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (lastGameError && lastGameError.code !== 'PGRST116') {
-        console.error('Error fetching last game:', lastGameError);
-        showMessage('error', 'Failed to fetch last game: ' + lastGameError.message);
-        return;
-      }
-
-      const gameNumber = (lastGame?.game_number || 0) + 1;
-
-      // Create new game
-      const { error } = await supabase
-        .from('games')
-        .insert([
-          {
-            game_number: gameNumber,
-            status: 'waiting',
-            start_time: new Date(Date.now() + 10000).toISOString(), // Start in 10 seconds
-            is_fixed: false,
-            fixed_result: null,
-          },
-        ]);
-
-      if (error) {
-        // If it's a duplicate key error, that's actually okay - the game exists
-        if (error.code === '23505') {
-          showMessage('success', `Game #${gameNumber} already exists and is ready!`);
-        } else {
-          console.error('Error creating new game:', error);
-          showMessage('error', 'Failed to create new game: ' + error.message);
-        }
-      } else {
-        showMessage('success', `New game #${gameNumber} created successfully!`);
-      }
-      
+      const response = await api.createGame();
+      showMessage('success', `New game created successfully!`);
       await fetchCurrentGame();
     } catch (error: any) {
       console.error('Error creating new game:', error);
@@ -334,13 +179,13 @@ export function AdminGameControl() {
             <div className="bg-[#0f212e] border border-[#2f4553] rounded-xl p-4">
               <p className="text-[#b1bad3] text-sm">Fixed Result</p>
               <p className="text-lg font-bold text-white">
-                {currentGame.is_fixed && currentGame.fixed_result !== null ? currentGame.fixed_result : 'Random'}
+                {currentGame.isFixed && currentGame.fixedResult !== null ? currentGame.fixedResult : 'Random'}
               </p>
             </div>
             <div className="bg-[#0f212e] border border-[#2f4553] rounded-xl p-4">
               <p className="text-[#b1bad3] text-sm">Start Time</p>
               <p className="text-sm text-white">
-                {new Date(currentGame.start_time).toLocaleTimeString()}
+                {new Date(currentGame.startTime).toLocaleTimeString()}
               </p>
             </div>
           </div>
@@ -503,7 +348,7 @@ export function AdminGameControl() {
                 <div className="flex justify-between">
                   <span className="text-[#b1bad3]">Games Today:</span>
                   <span className="text-white">{gameStats.gamesToday}</span>
-                </div>
+                <p className="text-2xl font-bold text-white">#{currentGame.gameNumber}</p>
               </div>
             </div>
           </div>
